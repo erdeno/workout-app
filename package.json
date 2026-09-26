@@ -18,7 +18,8 @@
   },
   "homepage": "https://github.com/erdeno/workout-app#readme",
   "dependencies": {
-    "@neondatabase/serverless": "^1.1.0"
+    "@neondatabase/serverless": "^1.1.0",
+    "@netlify/identity": "^2.0.0"
   },
   "devDependencies": {
     "netlify-cli": "^27.10.0"

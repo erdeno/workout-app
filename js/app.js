@@ -3,6 +3,17 @@ const { createApp } = Vue;
 createApp({
   data() {
     return {
+      authChecked: false,
+      user: null,
+      authMode: 'login',
+
+      authName: '',
+      authEmail: '',
+      authPassword: '',
+      authMessage: '',
+      authError: '',
+      authLoading: false,
+
       exercises: [],
       selectedExercise: null,
 
@@ -22,7 +33,7 @@ createApp({
 
       completionResult: null,
 
-      loading: true,
+      loading: false,
       error: null
     };
   },
@@ -34,7 +45,7 @@ createApp({
   },
 
   async mounted() {
-    await this.loadExercises();
+    await this.checkAuth();
   },
 
   beforeUnmount() {
@@ -42,6 +53,93 @@ createApp({
   },
 
   methods: {
+    async checkAuth() {
+      try {
+        const result = await getCurrentUser();
+
+        if (result.authenticated) {
+          this.user = result.user;
+          await this.loadExercises();
+        }
+      } catch (error) {
+        console.error(error);
+      } finally {
+        this.authChecked = true;
+      }
+    },
+
+    async login() {
+      try {
+        this.authLoading = true;
+        this.authError = '';
+        this.authMessage = '';
+
+        await loginUser(
+          this.authEmail,
+          this.authPassword
+        );
+
+        const result = await getCurrentUser();
+
+        if (!result.authenticated) {
+          throw new Error('Login succeeded but session was not created');
+        }
+
+        this.user = result.user;
+
+        this.authEmail = '';
+        this.authPassword = '';
+
+        await this.loadExercises();
+
+      } catch (error) {
+        this.authError = error.message;
+      } finally {
+        this.authLoading = false;
+      }
+    },
+
+    async register() {
+      try {
+        this.authLoading = true;
+        this.authError = '';
+        this.authMessage = '';
+
+        const result = await registerUser(
+          this.authName,
+          this.authEmail,
+          this.authPassword
+        );
+
+        this.authMessage =
+          result.message ||
+          'Account created. Check your email to confirm your account.';
+
+        this.authMode = 'login';
+        this.authPassword = '';
+
+      } catch (error) {
+        this.authError = error.message;
+      } finally {
+        this.authLoading = false;
+      }
+    },
+
+    async logout() {
+      try {
+        await logoutUser();
+      } catch (error) {
+        console.error(error);
+      }
+
+      clearInterval(this.restTimer);
+
+      this.user = null;
+      this.exercises = [];
+      this.selectedExercise = null;
+      this.screen = 'select';
+    },
+
     async loadExercises() {
       try {
         this.loading = true;
@@ -64,7 +162,9 @@ createApp({
       try {
         this.error = null;
 
-        const data = await getProgress(this.selectedExercise.id);
+        const data = await getProgress(
+          this.selectedExercise.id
+        );
 
         if (!data.hasProgress) {
           this.testReps = null;
@@ -94,7 +194,9 @@ createApp({
 
         this.assignedLevel = result.assignedLevel;
 
-        const data = await getProgress(this.selectedExercise.id);
+        const data = await getProgress(
+          this.selectedExercise.id
+        );
 
         this.progress = data.progress;
         this.workout = data.workout;

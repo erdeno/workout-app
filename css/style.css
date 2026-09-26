@@ -20,6 +20,54 @@ input {
   padding: 32px 20px;
 }
 
+.auth-container {
+  max-width: 420px;
+  margin: 60px auto;
+}
+
+.auth-input {
+  width: 100%;
+  padding: 16px;
+  margin-bottom: 12px;
+  border: 1px solid #ccc;
+  border-radius: 10px;
+  background: white;
+}
+
+.error-message {
+  color: #b00020;
+}
+
+.success-message {
+  padding: 12px;
+  border-radius: 8px;
+  background: #e8f5e9;
+}
+
+.secondary-button {
+  width: 100%;
+  padding: 14px;
+  margin-top: 10px;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 28px;
+  font-size: 14px;
+  color: #666;
+}
+
+.logout-button {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
 .exercise-grid {
   display: grid;
   gap: 12px;
@@ -29,6 +77,7 @@ input {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 16px;
 
   width: 100%;
   padding: 20px;
@@ -45,14 +94,9 @@ input {
   border-color: #111;
 }
 
-.exercise-card span {
-  color: #666;
-}
-
 .selection {
   margin-top: 32px;
   padding: 20px;
-
   background: white;
   border-radius: 12px;
 }
@@ -79,10 +123,8 @@ input {
 .back-button {
   padding: 0;
   margin-bottom: 24px;
-
   border: 0;
   background: transparent;
-
   cursor: pointer;
 }
 
@@ -90,7 +132,6 @@ input {
   display: block;
   margin-top: 32px;
   margin-bottom: 8px;
-
   font-weight: bold;
 }
 
@@ -114,19 +155,14 @@ input {
 
 .active-reps {
   margin: 40px 0 10px;
-
   font-size: 80px;
   font-weight: bold;
   text-align: center;
 }
 
-.center-text {
-  text-align: center;
-}
-
+.center-text,
 .set-counter {
   text-align: center;
-  font-size: 20px;
 }
 
 .stop-button {
@@ -136,7 +172,6 @@ input {
 
   border: 0;
   background: transparent;
-
   color: #777;
 
   cursor: pointer;
