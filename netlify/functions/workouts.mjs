@@ -1,58 +1,63 @@
-const { sql } = require('./lib/db');
+import {
+  getDatabaseUser,
+  sql
+} from './lib/auth-user.mjs';
 
-exports.handler = async (event) => {
-  if (event.httpMethod !== 'POST') {
-    return {
-      statusCode: 405,
-      body: JSON.stringify({ error: 'Method not allowed' })
-    };
+export default async (req) => {
+  if (req.method !== 'POST') {
+    return Response.json(
+      { error: 'Method not allowed' },
+      { status: 405 }
+    );
   }
 
   try {
-    const { exerciseId } = JSON.parse(event.body || '{}');
+    const user = await getDatabaseUser();
+
+    if (!user) {
+      return Response.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    const {
+      exerciseId
+    } = await req.json();
 
     if (!Number.isInteger(exerciseId)) {
-      return {
-        statusCode: 400,
-        body: JSON.stringify({ error: 'Invalid exerciseId' })
-      };
+      return Response.json(
+        { error: 'Invalid exerciseId' },
+        { status: 400 }
+      );
     }
-
-    // Temporary development user.
-    const users = await sql`
-      SELECT id
-      FROM users
-      WHERE google_id = 'dev-user'
-      LIMIT 1
-    `;
-
-    if (users.length === 0) {
-      return {
-        statusCode: 404,
-        body: JSON.stringify({ error: 'User not found' })
-      };
-    }
-
-    const userId = users[0].id;
 
     const progressRows = await sql`
       SELECT
         current_level,
-        current_workout
+        current_workout,
+        needs_retest
       FROM user_exercise_progress
-      WHERE user_id = ${userId}
+      WHERE user_id = ${user.id}
         AND exercise_id = ${exerciseId}
       LIMIT 1
     `;
 
     if (progressRows.length === 0) {
-      return {
-        statusCode: 404,
-        body: JSON.stringify({ error: 'Progress not found' })
-      };
+      return Response.json(
+        { error: 'Progress not found' },
+        { status: 404 }
+      );
     }
 
     const progress = progressRows[0];
+
+    if (progress.needs_retest) {
+      return Response.json(
+        { error: 'Fitness test required' },
+        { status: 409 }
+      );
+    }
 
     const templateRows = await sql`
       SELECT
@@ -69,10 +74,10 @@ exports.handler = async (event) => {
     `;
 
     if (templateRows.length === 0) {
-      return {
-        statusCode: 404,
-        body: JSON.stringify({ error: 'Workout not found' })
-      };
+      return Response.json(
+        { error: 'Workout not found' },
+        { status: 404 }
+      );
     }
 
     const workout = templateRows[0];
@@ -98,7 +103,7 @@ exports.handler = async (event) => {
         total_reps
       )
       VALUES (
-        ${userId},
+        ${user.id},
         ${exerciseId},
         ${progress.current_level},
         ${progress.current_workout},
@@ -119,12 +124,17 @@ exports.handler = async (event) => {
       LIMIT 1
     `;
 
-    const workoutsInLevel = ruleRows[0]?.workouts_in_level || 6;
+    const workoutsInLevel =
+      ruleRows[0]?.workouts_in_level || 6;
 
     let needsRetest = false;
-    let nextWorkout = progress.current_workout;
+    let nextWorkout =
+      progress.current_workout;
 
-    if (progress.current_workout >= workoutsInLevel) {
+    if (
+      progress.current_workout >=
+      workoutsInLevel
+    ) {
       needsRetest = true;
 
       await sql`
@@ -132,11 +142,12 @@ exports.handler = async (event) => {
         SET
           needs_retest = TRUE,
           updated_at = NOW()
-        WHERE user_id = ${userId}
+        WHERE user_id = ${user.id}
           AND exercise_id = ${exerciseId}
       `;
     } else {
-      nextWorkout = progress.current_workout + 1;
+      nextWorkout =
+        progress.current_workout + 1;
 
       await sql`
         UPDATE user_exercise_progress
@@ -144,35 +155,31 @@ exports.handler = async (event) => {
           current_workout = ${nextWorkout},
           needs_retest = FALSE,
           updated_at = NOW()
-        WHERE user_id = ${userId}
+        WHERE user_id = ${user.id}
           AND exercise_id = ${exerciseId}
       `;
     }
 
-    return {
-      statusCode: 200,
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        ok: true,
-        completedLevel: progress.current_level,
-        completedWorkout: progress.current_workout,
-        totalReps,
-        nextWorkout,
-        needsRetest
-      })
-    };
+    return Response.json({
+      ok: true,
+      completedLevel:
+        progress.current_level,
+      completedWorkout:
+        progress.current_workout,
+      totalReps,
+      nextWorkout,
+      needsRetest
+    });
 
   } catch (error) {
-    console.error(error);
+    console.error('WORKOUT ERROR:', error);
 
-    return {
-      statusCode: 500,
-      body: JSON.stringify({
+    return Response.json(
+      {
         ok: false,
-        error: 'Failed to complete workout'
-      })
-    };
+        error: error.message
+      },
+      { status: 500 }
+    );
   }
 };
