@@ -39,9 +39,12 @@ export default async (req) => {
     return Response.json(
       {
         ok: false,
-        error: 'Invalid email or password'
+        error: error.message || 'Login failed',
+        status: error.status || null
       },
-      { status: 401 }
+      {
+        status: error.status || 401
+      }
     );
   }
 };
