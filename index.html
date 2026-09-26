@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>Workout App</title>
+
+  <link rel="stylesheet" href="/css/style.css">
+
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+</head>
+
+<body>
+
+<div id="app">
+
+  <!-- SELECT EXERCISE -->
+  <template v-if="screen === 'select'">
+
+    <h1>Choose Exercise</h1>
+
+    <p v-if="loading">
+      Loading exercises...
+    </p>
+
+    <p v-if="error">
+      {{ error }}
+    </p>
+
+    <div class="exercise-grid">
+
+      <button
+        v-for="exercise in exercises"
+        :key="exercise.id"
+        class="exercise-card"
+        :class="{ selected: selectedExercise?.id === exercise.id }"
+        @click="selectExercise(exercise)"
+      >
+        <div>
+          <strong>
+            {{ exercise.name }}
+          </strong>
+
+          <div v-if="exercise.last_test_reps !== null">
+            Current max: {{ exercise.last_test_reps }}
+          </div>
+
+          <div v-else>
+            No test yet
+          </div>
+
+          <div v-if="exercise.current_level">
+            Level {{ exercise.current_level }}
+            · Workout {{ exercise.current_workout }}
+          </div>
+        </div>
+
+        <div>
+          Goal: {{ exercise.goal_reps }}
+        </div>
+      </button>
+
+    </div>
+
+
+    <div
+      v-if="selectedExercise"
+      class="selection"
+    >
+      <h2>
+        {{ selectedExercise.name }}
+      </h2>
+
+      <p>
+        Goal:
+        {{ selectedExercise.goal_reps }}
+        consecutive reps
+      </p>
+
+      <p v-if="selectedExercise.last_test_reps !== null">
+        Current max:
+        {{ selectedExercise.last_test_reps }}
+      </p>
+
+      <button
+        class="primary-button"
+        @click="continueExercise"
+      >
+        Continue
+      </button>
+    </div>
+
+  </template>
+
+
+  <!-- FITNESS TEST -->
+  <template v-else-if="screen === 'test'">
+
+    <button
+      class="back-button"
+      @click="screen = 'select'"
+    >
+      ← Back
+    </button>
+
+    <h1>
+      {{ selectedExercise.name }} Test
+    </h1>
+
+    <p>
+      Perform as many consecutive
+      {{ selectedExercise.name.toLowerCase() }}
+      as you can with good form.
+    </p>
+
+    <label class="input-label">
+      Maximum repetitions
+    </label>
+
+    <input
+      v-model.number="testReps"
+      class="rep-input"
+      type="number"
+      min="0"
+      inputmode="numeric"
+      placeholder="0"
+    >
+
+    <p v-if="error">
+      {{ error }}
+    </p>
+
+    <button
+      class="primary-button"
+      :disabled="testReps === null || testReps < 0"
+      @click="submitTest"
+    >
+      Save Result
+    </button>
+
+  </template>
+
+
+  <!-- TEST RESULT -->
+  <template v-else-if="screen === 'result'">
+
+    <h1>
+      Level {{ assignedLevel }}
+    </h1>
+
+    <p>
+      Your test result:
+      <strong>{{ testReps }} reps</strong>
+    </p>
+
+    <p>
+      You will start {{ selectedExercise.name }}
+      at Level {{ assignedLevel }}.
+    </p>
+
+    <button
+      class="primary-button"
+      @click="screen = 'workoutPreview'"
+    >
+      View First Workout
+    </button>
+
+  </template>
+
+
+  <!-- WORKOUT PREVIEW -->
+  <template v-else-if="screen === 'workoutPreview'">
+
+    <button
+      class="back-button"
+      @click="screen = 'select'"
+    >
+      ← Back
+    </button>
+
+    <h1>
+      {{ selectedExercise.name }}
+    </h1>
+
+    <template v-if="progress && workout">
+
+      <p>
+        Level {{ progress.current_level }}
+        · Workout {{ progress.current_workout }}
+      </p>
+
+      <div class="selection">
+
+        <h2>Today's Workout</h2>
+
+        <p class="workout-sets">
+          {{ workout.set_1 }}
+          /
+          {{ workout.set_2 }}
+          /
+          {{ workout.set_3 }}
+          /
+          {{ workout.set_4 }}
+          /
+          {{ workout.set_5 }}
+        </p>
+
+        <p>
+          Rest: {{ workout.rest_seconds }} seconds
+        </p>
+
+        <button
+          class="primary-button"
+          @click="startWorkout"
+        >
+          Start Workout
+        </button>
+
+      </div>
+
+    </template>
+
+    <p v-else>
+      Workout data could not be loaded.
+    </p>
+
+  </template>
+
+
+  <!-- ACTIVE WORKOUT -->
+  <template v-else-if="screen === 'activeWorkout'">
+
+    <h1>
+      {{ selectedExercise.name }}
+    </h1>
+
+    <p class="set-counter">
+      Set {{ currentSetIndex + 1 }} / 5
+    </p>
+
+    <div class="active-reps">
+      {{ currentReps }}
+    </div>
+
+    <p class="center-text">
+      repetitions
+    </p>
+
+    <p v-if="error">
+      {{ error }}
+    </p>
+
+    <button
+      class="primary-button"
+      @click="finishSet"
+    >
+      Done
+    </button>
+
+    <button
+      class="stop-button"
+      @click="stopWorkout"
+    >
+      Stop Workout
+    </button>
+
+  </template>
+
+
+  <!-- REST -->
+  <template v-else-if="screen === 'rest'">
+
+    <h1>Rest</h1>
+
+    <div class="active-reps">
+      {{ restRemaining }}
+    </div>
+
+    <p class="center-text">
+      seconds
+    </p>
+
+    <p class="center-text">
+      Next set:
+      {{ currentReps }} reps
+    </p>
+
+    <button
+      class="primary-button"
+      @click="skipRest"
+    >
+      Skip Rest
+    </button>
+
+    <button
+      class="stop-button"
+      @click="stopWorkout"
+    >
+      Stop Workout
+    </button>
+
+  </template>
+
+
+  <!-- WORKOUT COMPLETE -->
+  <template v-else-if="screen === 'workoutComplete'">
+
+    <h1>
+      Workout Complete
+    </h1>
+
+    <p>
+      Good job. Take one rest day before your next workout.
+    </p>
+
+    <p
+      v-if="
+        completionResult &&
+        !completionResult.needsRetest &&
+        progress
+      "
+    >
+      Next:
+      Level {{ progress.current_level }}
+      · Workout {{ progress.current_workout }}
+    </p>
+
+    <p
+      v-if="
+        completionResult &&
+        completionResult.needsRetest
+      "
+    >
+      You completed this level.
+      Your next session will be a new maximum-repetition test.
+    </p>
+
+    <p>
+      See you next workout.
+    </p>
+
+    <button
+      class="primary-button"
+      @click="finishCompletionScreen"
+    >
+      Finish
+    </button>
+
+  </template>
+
+</div>
+
+
+<script src="/js/api.js"></script>
+<script src="/js/workout.js"></script>
+<script src="/js/app.js"></script>
+
+</body>
+</html>
